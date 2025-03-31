@@ -1,0 +1,31 @@
+﻿@using SizingCalculator.BlazorApp.Components.Pages.DataSchemas.Models
+@rendermode InteractiveServer
+@implements IDialogContentComponent<DataSchemaPropertyModel>
+@inject IMediator Mediator
+
+<PageTitle>Свойство схемы данных</PageTitle>
+
+<EditForm FormName="@(nameof(DataSchemaPropertyModel))" Model="Content" OnValidSubmit="@Submit">
+    <DataAnnotationsValidator />
+    <FluentTextField Label="Название" @bind-Value="Content.Title" />
+    <FluentNumberField Label="Количество" @bind-Value="Content.Quantity" />
+
+    <FluentDialogFooter>
+        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Сохранить</FluentButton>
+    </FluentDialogFooter>
+</EditForm>
+
+@code {
+    [Parameter]
+    public required DataSchemaPropertyModel Content { get; set; }
+
+    [CascadingParameter]
+    public required FluentDialog FluentDialog { get; set; }
+
+    private async Task Submit()
+    {
+        var request = new CreateDataSchema.Request { Title = Content.Title, Properties = [] };
+        var response = await Mediator.Send(request);
+    }
+}
+
