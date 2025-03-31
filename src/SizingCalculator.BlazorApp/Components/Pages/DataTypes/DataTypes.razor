@@ -1,0 +1,38 @@
+﻿@page "/types"
+@rendermode InteractiveServer
+@inject IMediator Mediator;
+@inject IDialogService DialogService;
+
+<PageTitle>Типы данных</PageTitle>
+
+<FluentDataGrid @ref="Grid" TGridItem="DataTypeModel" ItemsProvider="Provider" Pagination="PaginationState">
+    <PropertyColumn Title="Название" Property="@(model => model.Title)" />
+    <PropertyColumn Title="Размер в байтах" Property="@(model => model.Size)" />
+</FluentDataGrid>
+<FluentPaginator State="PaginationState" />
+
+@code {
+    private FluentDataGrid<DataTypeModel> Grid { get; set; } = null!;
+    private GridItemsProvider<DataTypeModel> Provider { get; set; } = default!;
+    private PaginationState PaginationState { get; set; } = new PaginationState { ItemsPerPage = 20 };
+
+    protected override void OnInitialized()
+    {
+        Provider = GridItemsProvider;
+    }
+
+    private async ValueTask<GridItemsProviderResult<DataTypeModel>> GridItemsProvider(
+        GridItemsProviderRequest<DataTypeModel> request)
+    {
+        var getRequest = new GetDataTypes.Request()
+            {
+                Pagination = request.ToSkipPagination()
+            };
+
+        Grid.SetLoadingState(true);
+        var response = await Mediator.Send(getRequest);
+        Grid.SetLoadingState(false);
+
+        return response.ToProviderResult(dataType => new DataTypeModel { Id = dataType.Id, Title = dataType.Title, Size = dataType.Size });
+    }
+}

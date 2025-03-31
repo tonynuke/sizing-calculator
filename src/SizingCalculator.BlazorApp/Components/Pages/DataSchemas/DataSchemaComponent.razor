@@ -1,0 +1,52 @@
+﻿@rendermode InteractiveServer
+@implements IDialogContentComponent<DataSchemaModel>
+@inject Mediator _mediator;
+
+<PageTitle>Схема данных</PageTitle>
+
+<EditForm FormName="@(nameof(DataSchemaComponent))" OnValidSubmit="Submit">
+    <DataAnnotationsValidator/>
+    <FluentDialogFooter>
+
+    </FluentDialogFooter>
+</EditForm>
+
+@* <FluentDataGrid @ref="Grid" TGridItem="DataSchemaPropertyModel"> *@
+@*     <PropertyColumn Title="ID" Property="@(model => model.Title)" /> *@
+@* </FluentDataGrid> *@
+@* <FluentPaginator State="PaginationState" /> *@
+
+@code {
+    [Parameter]
+    public required DataSchemaModel Content { get; set; }
+
+    [CascadingParameter]
+    public FluentDialog FluentDialog { get; set; }
+
+    private async Task Submit() { }
+
+    // private FluentDataGrid<DataSchemaPropertyModel> Grid { get; set; } = null!;
+    // private GridItemsProvider<DataSchemaPropertyModel> Provider { get; set; } = default!;
+    // private PaginationState PaginationState { get; set; } = null!;
+
+    // protected override void OnInitialized()
+    // {
+    //     Provider = GridItemsProvider;
+    // }
+
+    // private async ValueTask<GridItemsProviderResult<DataSchemaPropertyModel>> GridItemsProvider(
+    //     GridItemsProviderRequest<DataSchemaModel> request)
+    // {
+    //     var getRequest = new GetDataSchemas.Request()
+    //         {
+    //             Pagination = request.ToSkipPagination()
+    //         };
+
+    //     Grid.SetLoadingState(true);
+    //     var response = await _mediator.Send(getRequest);
+    //     Grid.SetLoadingState(false);
+
+    //     return response.ToProviderResult(schema => new DataSchemaModel { Title = schema.Title });
+    // }
+}
+
