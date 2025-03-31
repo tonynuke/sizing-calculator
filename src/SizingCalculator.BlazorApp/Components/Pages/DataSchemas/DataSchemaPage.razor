@@ -1,0 +1,68 @@
+﻿@page "/schemas/{id:guid}"
+@using SizingCalculator.BlazorApp.Components.Pages.DataTypes
+@using SizingCalculator.Domain
+@rendermode InteractiveServer
+@inject IMediator Mediator;
+@inject IDialogService DialogService;
+@inject IMessageService MessageService;
+
+<PageTitle>Схема данных</PageTitle>
+
+@if (Content is not null)
+{
+    <FluentTextField Label="Название" @bind-Value="Content.Title" Style="width: 100%" />
+
+    <FluentButton OnClick="@AddDataSchemaProperty">Добавить свойство</FluentButton>
+
+    <FluentStack Orientation="Orientation.Vertical">
+        @foreach (var dataSchemaProperty in Content.Properties)
+        {
+            <FluentStack Orientation="Orientation.Horizontal">
+                <FluentTextField @bind-Value="dataSchemaProperty.Title"></FluentTextField>
+                <FluentNumberField @bind-Value="dataSchemaProperty.Quantity"></FluentNumberField>
+                <FluentSelect Label="Тип"
+                              Items="@DataTypes"
+                              TOption="DataType"
+                              OptionValue="@(dataType => dataType.Id.ToString())"
+                              OptionText="@(dataType => dataType.Title)" />
+            </FluentStack>
+        }
+    </FluentStack>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private DataSchema Content { get; set; }
+
+    private IReadOnlyCollection<DataType> DataTypes { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var getDataSchemaRequest = new GetDataSchema.Request { Id = Id };
+        var getDataSchemaResponse = await Mediator.Send(getDataSchemaRequest);
+
+        if (getDataSchemaResponse.DataSchema is null)
+        {
+            Content = new DataSchema { Id = Guid.NewGuid(), Properties = [], Title = "Новая схема" };
+            Id = Content.Id;
+        }
+        else
+        {
+            Content = getDataSchemaResponse.DataSchema;
+        }
+
+        // HACK: предполагаем что не будет много типов данных
+        var dataTypesRequest = new GetDataTypes.Request { Pagination = Pagination.SkipPagination.Default };
+        var dataTypesResponse = await Mediator.Send(dataTypesRequest);
+        DataTypes = dataTypesResponse.Items;
+    }
+
+    private void AddDataSchemaProperty()
+    {
+        var property = new DataSchemaProperty { DataType = DataTypes.First(), Title = "Тип" };
+        Content.Properties.Add(property);
+    }
+}
+
