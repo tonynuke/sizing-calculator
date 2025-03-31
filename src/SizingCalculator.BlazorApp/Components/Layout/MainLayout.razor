@@ -1,0 +1,20 @@
+﻿@inherits LayoutComponentBase
+
+<div style="height: 500px;">
+    <FluentMainLayout>
+        <Header>Sizing calculator</Header>
+        <Body>
+            @Body
+        </Body>
+        <NavMenuContent>
+            <FluentNavLink Icon="@(new Icons.Regular.Size24.BookCoins())" Href="schemas">Типы данных</FluentNavLink>
+            <FluentNavLink Icon="@(new Icons.Regular.Size24.BookDatabase())" Href="types">Схемы данных</FluentNavLink>
+        </NavMenuContent>
+    </FluentMainLayout>
+</div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />
