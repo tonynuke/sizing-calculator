@@ -1,0 +1,51 @@
+﻿@using SizingCalculator.BlazorApp.Components.Pages.DataTypes.Models
+@rendermode InteractiveServer
+@implements IDialogContentComponent<DataTypeModel>
+@inject IMediator Mediator
+@inject IMessageService MessageService;
+
+<PageTitle>Тип данных</PageTitle>
+
+<EditForm FormName="@(nameof(DataTypeComponent))" Model="Content" OnValidSubmit="@Submit">
+    <DataAnnotationsValidator />
+    <FluentTextField Label="Название" @bind-Value="Content.Title" Style="width: 100%"/>
+    <FluentNumberField Label="Объем в байтах" @bind-Value="Content.Size" Style="width: 100%" />
+    <FluentDialogFooter>
+        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Сохранить</FluentButton>
+    </FluentDialogFooter>
+</EditForm>
+
+@code {
+    [Parameter]
+    public required DataTypeModel Content { get; set; }
+
+    [CascadingParameter]
+    public required FluentDialog FluentDialog { get; set; }
+
+    private async Task Submit()
+    {
+        IBaseRequest request = Content.IsNew ?
+        new CreateDataType.Request { Size = Content.Size, Title = Content.Title } :
+        new UpdateDataType.Request { Size = Content.Size, Title = Content.Title, Id = Content.Id!.Value };
+
+        try
+        {
+            await Mediator.Send(request);
+            await FluentDialog.CloseAsync(Content);
+
+            if (Content.IsNew)
+            {
+                MessageService.ShowMessageBar("Создан", MessageIntent.Success);
+            }
+            else
+            {
+                MessageService.ShowMessageBar("Изменен", MessageIntent.Success);
+            }
+        }
+        catch (Exception exception)
+        {
+            MessageService.ShowMessageBar(exception.Message, MessageIntent.Error);
+        }
+    }
+}
+
