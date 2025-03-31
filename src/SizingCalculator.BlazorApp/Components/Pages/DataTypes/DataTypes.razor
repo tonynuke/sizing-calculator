@@ -1,0 +1,113 @@
+﻿@page "/types"
+@rendermode InteractiveServer
+@inject IMediator Mediator;
+@inject IDialogService DialogService;
+@inject IMessageService MessageService;
+
+<PageTitle>Типы данных</PageTitle>
+
+<FluentToolbar id="toolbar-fluent-components">
+    <FluentButton OnClick="@Initialize">Инициализировать типы</FluentButton>
+    <FluentButton OnClick="@Create">Создать тип</FluentButton>
+</FluentToolbar>
+
+<FluentDataGrid @ref="Grid"
+                TGridItem="DataTypeModel"
+                ItemsProvider="Provider"
+                Pagination="PaginationState"
+                ShowHover="true"
+                OnRowClick="@(row => Edit(row))">
+    <PropertyColumn Title="Название" Property="@(model => model.Title)" />
+    <PropertyColumn Title="Размер в байтах" Property="@(model => model.Size)" />
+    <TemplateColumn>
+        <div @onclick:stopPropagation="true">
+            <FluentButton IconStart="@(new Icons.Regular.Size16.Delete())" OnClick="@(() => Delete(context))"></FluentButton>
+        </div>
+    </TemplateColumn>
+</FluentDataGrid>
+<FluentPaginator State="PaginationState" />
+
+@code {
+    private FluentDataGrid<DataTypeModel> Grid { get; set; } = null!;
+    private GridItemsProvider<DataTypeModel> Provider { get; set; } = default!;
+    private PaginationState PaginationState { get; set; } = new PaginationState { ItemsPerPage = 20 };
+
+    protected override void OnInitialized()
+    {
+        Provider = GridItemsProvider;
+    }
+
+    private async ValueTask<GridItemsProviderResult<DataTypeModel>> GridItemsProvider(
+        GridItemsProviderRequest<DataTypeModel> request)
+    {
+        var getRequest = new GetDataTypes.Request()
+            {
+                Pagination = request.ToSkipPagination()
+            };
+
+        Grid.SetLoadingState(true);
+        var response = await Mediator.Send(getRequest);
+        Grid.SetLoadingState(false);
+
+        return response.ToProviderResult(dataType => new DataTypeModel { Id = dataType.Id, Title = dataType.Title, Size = dataType.Size });
+    }
+
+    private async Task Create()
+    {
+        DialogParameters dialogParameters = new()
+            {
+                Title = "Создать тип"
+            };
+
+        var model = new DataTypeModel { Title = "Новый тип", Size = 1 };
+        var dialog = await DialogService.ShowDialogAsync<DataTypeComponent>(model, dialogParameters);
+        var dialogResult = await dialog.Result;
+        if (dialogResult.Data is not null)
+        {
+            await Grid.RefreshDataAsync();
+        }
+    }
+
+    private async Task Edit(FluentDataGridRow<DataTypeModel> row)
+    {
+        var oldModel = row.Item!;
+        DialogParameters dialogParameters = new()
+            {
+                Title = "Изменить тип"
+            };
+
+        var model = new DataTypeModel { Title = oldModel.Title, Size = oldModel.Size, Id = oldModel.Id };
+        var dialog = await DialogService.ShowDialogAsync<DataTypeComponent>(model, dialogParameters);
+        var dialogResult = await dialog.Result;
+        if (dialogResult.Data is not null)
+        {
+            oldModel.Title = model.Title;
+            oldModel.Size = model.Size;
+        }
+    }
+
+    private async Task Delete(DataTypeModel dataType)
+    {
+        var request = new DeleteDataType.Request { Id = dataType.Id!.Value };
+
+        try
+        {
+            await Mediator.Send(request);
+            await Grid.RefreshDataAsync();
+
+            MessageService.ShowMessageBar("Удален", MessageIntent.Success);
+        }
+        catch (Exception exception)
+        {
+            MessageService.ShowMessageBar(exception.Message, MessageIntent.Error);
+        }
+    }
+
+    private async Task Initialize()
+    {
+        var request = new InitializeDataTypes.Request();
+        await Mediator.Send(request);
+        await Grid.RefreshDataAsync();
+        MessageService.ShowMessageBar("Типы данных инициализированы", MessageIntent.Success);
+    }
+}

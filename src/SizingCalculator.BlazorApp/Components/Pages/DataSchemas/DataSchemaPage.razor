@@ -1,0 +1,161 @@
+﻿@page "/schemas/{id:guid}"
+@using SizingCalculator.BlazorApp.Components.Pages.DataTypes
+@using SizingCalculator.Domain
+@using SizingCalculator.Domain.Persistence
+@rendermode InteractiveServer
+@inject IMediator Mediator;
+@inject IDialogService DialogService;
+@inject IMessageService MessageService;
+
+<PageTitle>Схема данных</PageTitle>
+
+@if (Content is not null)
+{
+    <FluentToolbar id="toolbar-fluent-components">
+        <FluentButton OnClick="@AddDataSchemaProperty">Добавить свойство</FluentButton>
+        <FluentButton OnClick="Save">Сохранить</FluentButton>
+    </FluentToolbar>
+
+    <FluentGrid>
+        <FluentGridItem xs="12" sm="6">
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel Typo="Typography.Header">@Content.Title</FluentLabel>
+
+                <FluentTextField Label="Название" @bind-Value="Content.Title" Style="width: 100%" />
+
+                @foreach (var dataSchemaProperty in Content.Properties)
+                {
+                    <FluentStack Orientation="Orientation.Horizontal">
+                        <FluentSelect Items="@DataTypes"
+                        @bind-Value="dataSchemaProperty.SelectedDataTypeId"
+                        TOption="DataType"
+                        SelectedOptionChanged="@(() => {if (dataSchemaProperty is not null) dataSchemaProperty.DataType = DataTypeById[dataSchemaProperty.SelectedDataTypeId];})"
+                        OptionValue="@(dataType => dataType.Id.ToString())"
+                        OptionText="@(dataType => dataType.Title)" />
+                        <FluentTextField @bind-Value="dataSchemaProperty.Title"></FluentTextField>
+                        <FluentNumberField @bind-Value="dataSchemaProperty.Quantity"></FluentNumberField>
+                        <FluentButton IconStart="@(new Icons.Regular.Size16.Delete())" OnClick="@(() => RemoveDataSchemaProperty(dataSchemaProperty))"></FluentButton>
+                    </FluentStack>
+                }
+            </FluentStack>
+        </FluentGridItem>
+        <FluentGridItem xs="12" sm="6">
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentTextField ReadOnly Value="@Sizing.ConvertBytesToReadableSize(Sizing.RowSize)" Label="Размер строки"></FluentTextField>
+                <FluentTextField ReadOnly Value="@Sizing.ConvertBytesToReadableSize(Sizing.TotalSize)" Label="Размер хранилища"></FluentTextField>
+                <FluentNumberField @bind-Value="SizingOptions.RowsCount" Label="Количество строк"></FluentNumberField>
+                <FluentSelect Items="Enum.GetValues<MultiplierType>()"
+                @bind-SelectedOption="SizingOptions.Multiplier"
+                OptionValue="@(type => type.ToString())"
+                OptionText="@(type => type.ToString())"
+                TOption="MultiplierType" />
+                @foreach (var advice in Advices)
+                {
+                    <FluentBadge>@advice</FluentBadge>
+                }
+            </FluentStack>
+        </FluentGridItem>
+    </FluentGrid>
+
+}
+
+@code {
+    [Parameter]
+    public required Guid Id { get; set; }
+
+    private DataSchema Content { get; set; } = null!;
+
+    private IReadOnlyCollection<DataType> DataTypes { get; set; } = [];
+    private IReadOnlyDictionary<string, DataType> DataTypeById { get; set; } = new Dictionary<string, DataType>();
+
+    private bool IsNew = false;
+
+    private SizingOptions SizingOptions => Content.SizingOptions;
+
+    private Sizing Sizing => Content?.GetSizing() ?? new Sizing { TotalSize = 0, RowSize = 0 };
+
+    private IReadOnlyCollection<string> Advices
+    {
+        get
+        {
+            var request = new AdviceRequest { Sizing = Sizing };
+            return Adviser.GetAdvices(request);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // HACK: предполагаем что не будет много типов данных
+        var dataTypesRequest = new GetDataTypes.Request { Pagination = Pagination.SkipPagination.Default };
+        var dataTypesResponse = await Mediator.Send(dataTypesRequest);
+        DataTypes = dataTypesResponse.Items;
+        DataTypeById = DataTypes.ToDictionary(type => type.Id.ToString());
+
+        var getDataSchemaRequest = new GetDataSchema.Request { Id = Id };
+        var getDataSchemaResponse = await Mediator.Send(getDataSchemaRequest);
+
+        if (getDataSchemaResponse.DataSchema is null)
+        {
+            Content = new DataSchema { Id = Guid.NewGuid(), Properties = [], Title = "Новая схема" };
+            Id = Content.Id;
+            IsNew = true;
+        }
+        else
+        {
+            Content = getDataSchemaResponse.DataSchema;
+            foreach (var property in Content.Properties)
+            {
+                property.SelectedDataTypeId = property.DataType.Id.ToString();
+            }
+        }
+    }
+
+    private void AddDataSchemaProperty()
+    {
+        var property = new DataSchemaProperty { DataType = DataTypes.First(), Title = $"Свойство {Content.Properties.Count + 1}" };
+        Content.Properties.Add(property);
+    }
+
+    private void RemoveDataSchemaProperty(DataSchemaProperty property)
+    {
+        Content.Properties.Remove(property);
+    }
+
+    private async Task Save()
+    {
+        var properties = Content.Properties
+            .Select(property => new DataSchemaPropertyDto
+                {
+                    DataTypeId = property.DataType.Id,
+                    Title = property.Title,
+                    Quantity = property.Quantity,
+                })
+            .ToList();
+
+        if (IsNew)
+        {
+            var request = new CreateDataSchema.Request
+                {
+                    Title = Content.Title,
+                    Properties = properties,
+                    SizingOptions = Content.SizingOptions
+                };
+            await Mediator.Send(request);
+            IsNew = false;
+            MessageService.ShowMessageBar($"Сохранена новая схема {request.Title}");
+        }
+        else
+        {
+            var request = new UpdateDataSchema.Request
+                {
+                    Id = Content.Id,
+                    Title = Content.Title,
+                    Properties = properties,
+                    SizingOptions = Content.SizingOptions
+                };
+            await Mediator.Send(request);
+            MessageService.ShowMessageBar($"Сохранена схема {request.Title}");
+        }
+    }
+}
+

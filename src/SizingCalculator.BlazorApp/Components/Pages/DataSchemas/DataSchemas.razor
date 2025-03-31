@@ -1,0 +1,93 @@
+﻿@page "/schemas"
+@rendermode InteractiveServer
+@inject IMediator Mediator;
+@inject IDialogService DialogService;
+@inject IMessageService MessageService;
+@inject NavigationManager NavigationManager;
+
+<PageTitle>Схемы данных</PageTitle>
+
+<FluentToolbar id="toolbar-fluent-components">
+    <FluentButton OnClick="@Create">Создать схему</FluentButton>
+</FluentToolbar>
+
+<FluentDataGrid @ref="Grid"
+                TGridItem="DataSchemaModel"
+                ItemsProvider="Provider"
+                ShowHover="true"
+                OnRowClick="@(row => Edit(row))"
+                Pagination="PaginationState">
+    <PropertyColumn Title="Название" Property="@(model => model.Title)" />
+    <TemplateColumn>
+        <div @onclick:stopPropagation="true">
+            <FluentButton IconStart="@(new Icons.Regular.Size16.Delete())" OnClick="@(() => Delete(context))"></FluentButton>
+        </div>
+    </TemplateColumn>
+</FluentDataGrid>
+<FluentPaginator State="PaginationState" />
+
+@code {
+    private FluentDataGrid<DataSchemaModel> Grid { get; set; } = null!;
+    private GridItemsProvider<DataSchemaModel> Provider { get; set; } = default!;
+    private PaginationState PaginationState { get; set; } = new PaginationState { ItemsPerPage = 20 };
+
+    protected override void OnInitialized()
+    {
+        Provider = GridItemsProvider;
+    }
+
+    private async ValueTask<GridItemsProviderResult<DataSchemaModel>> GridItemsProvider(
+        GridItemsProviderRequest<DataSchemaModel> request)
+    {
+        var getRequest = new GetDataSchemas.Request()
+            {
+                Pagination = request.ToSkipPagination()
+            };
+
+        Grid.SetLoadingState(true);
+        var response = await Mediator.Send(getRequest);
+        Grid.SetLoadingState(false);
+
+        return response.ToProviderResult(schema => new DataSchemaModel { Id = schema.Id, Properties = [], Title = schema.Title });
+    }
+
+    private void Edit(FluentDataGridRow<DataSchemaModel> row)
+    {
+        NavigationManager.NavigateTo($"/schemas/{row.Item.Id}");
+    }
+
+    private async Task Delete(DataSchemaModel dataSchema)
+    {
+        var request = new DeleteDataSchema.Request { Id = dataSchema.Id!.Value };
+
+        try
+        {
+            await Mediator.Send(request);
+            await Grid.RefreshDataAsync();
+
+            MessageService.ShowMessageBar("Удален", MessageIntent.Success);
+        }
+        catch (Exception exception)
+        {
+            MessageService.ShowMessageBar(exception.Message, MessageIntent.Error);
+        }
+    }
+
+    private async Task Create()
+    {
+        DialogParameters dialogParameters = new()
+            {
+                Title = "Создать схему"
+            };
+
+        var model = new DataSchemaModel { Id = Guid.NewGuid(), Properties = [], Title = "Новая схема" };
+        var dialog = await DialogService.ShowDialogAsync<DataSchemaComponent>(model, dialogParameters);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult.Data is not null)
+        {
+            NavigationManager.NavigateTo($"/schemas/{model.Id}");
+        }
+    }
+}
+
